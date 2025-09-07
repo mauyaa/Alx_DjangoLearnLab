@@ -1,9 +1,10 @@
 from django.shortcuts import render, get_object_or_404
-from django.views.generic import ListView, DetailView
+from django.views.generic import ListView
+from django.views.generic.detail import DetailView
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.shortcuts import redirect
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import permission_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from .models import Library, Book, UserProfile
 
