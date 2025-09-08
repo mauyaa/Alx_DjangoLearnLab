@@ -31,12 +31,6 @@ def login_view(request):
     return render(request, 'relationship_app/login.html', {'form': form})
 
 def register(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('list_books')
 
 def logout_view(request):
     logout(request)
