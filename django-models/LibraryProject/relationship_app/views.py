@@ -37,8 +37,6 @@ def register(request):
             user = form.save()
             login(request, user)
             return redirect('list_books')
-    else:
-        form = UserCreationForm()
 
 def logout_view(request):
     logout(request)
