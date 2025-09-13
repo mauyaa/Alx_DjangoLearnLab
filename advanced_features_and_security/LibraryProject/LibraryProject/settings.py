@@ -130,7 +130,7 @@ CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 
 # HTTPS and secure redirects
-SECURE_SSL_REDIRECT = False  # Set to True in production
+SECURE_SSL_REDIRECT = False  # Set to True in production; disabled for development server
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
