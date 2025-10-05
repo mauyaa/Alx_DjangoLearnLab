@@ -1,0 +1,5 @@
+body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+nav a { margin-right: 1rem; }
+.messages { list-style: none; padding: 0; color: green; }
+.post-card { border: 1px solid #ddd; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
+.tag { font-size: 0.85rem; margin-right: .5rem; opacity: .8; }
