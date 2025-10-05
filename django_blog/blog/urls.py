@@ -5,7 +5,7 @@ from . import views
 
 urlpatterns = [
     # Auth
-    path('login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('login/', LoginView.as_view(template_name='blog/login.html'), name='login'),
     path('register/', views.RegisterView.as_view(), name='register'),
     path('profile/', views.profile_view, name='profile'),
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path('comment/<int:pk>/delete/', views.CommentDeleteView.as_view(), name='comment_delete'),
 
     # Tags & Search
-    path('tags/<slug:tag_slug>/', views.posts_by_tag, name='posts_by_tag'),
+    path('tags/<slug:tag_slug>/', views.PostByTagListView.as_view(), name='posts_by_tag'),
     path('search/', views.search_view, name='search'),
 ]
+

@@ -1,4 +1,4 @@
-from django.contrib import messages
+﻿from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, FormView, ListView, UpdateView
+from taggit.models import Tag
 
 from .forms import CommentForm, PostForm, ProfileForm, UserRegistrationForm
 from .models import Comment, Post
@@ -133,6 +134,21 @@ class CommentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return self.object.post.get_absolute_url()
 
 
+class PostByTagListView(ListView):
+    template_name = 'blog/tag_posts.html'
+    context_object_name = 'posts'
+    paginate_by = 10
+
+    def get_queryset(self):
+        self.tag = get_object_or_404(Tag, slug=self.kwargs['tag_slug'])
+        return Post.objects.filter(tags__in=[self.tag])
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['tag'] = self.tag
+        return ctx
+
+
 def search_view(request):
     q = request.GET.get('q', '').strip()
     results = Post.objects.none()
@@ -143,11 +159,3 @@ def search_view(request):
             | Q(tags__name__icontains=q)
         ).distinct()
     return render(request, 'blog/search_results.html', {'query': q, 'results': results})
-
-
-def posts_by_tag(request, tag_slug):
-    from taggit.models import Tag
-
-    tag = get_object_or_404(Tag, slug=tag_slug)
-    posts = Post.objects.filter(tags__in=[tag])
-    return render(request, 'blog/tag_posts.html', {'tag': tag, 'posts': posts})
