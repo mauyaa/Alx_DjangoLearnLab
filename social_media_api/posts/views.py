@@ -1,7 +1,9 @@
-from django.shortcuts import get_object_or_404
+from django.contrib.contenttypes.models import ContentType
 from rest_framework import filters, generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from notifications.models import Notification
 
 from .models import Comment, Like, Post
 from .permissions import IsAuthorOrReadOnly
@@ -9,6 +11,7 @@ from .serializers import CommentSerializer, PostSerializer
 
 
 class PostViewSet(viewsets.ModelViewSet):
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -19,7 +22,8 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            Post.objects.select_related("author")
+            Post.objects.all()
+            .select_related("author")
             .prefetch_related("likes", "comments")
             .all()
         )
@@ -29,6 +33,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
 
 class CommentViewSet(viewsets.ModelViewSet):
+    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
 
@@ -40,7 +45,17 @@ class CommentViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        comment = serializer.save(author=self.request.user)
+        post = comment.post
+        if post.author != comment.author:
+            post_ct = ContentType.objects.get_for_model(post)
+            Notification.objects.create(
+                recipient=post.author,
+                actor=comment.author,
+                verb="commented on your post",
+                target_ct=post_ct,
+                target_id=post.id,
+            )
 
 
 class FeedView(generics.ListAPIView):
@@ -48,12 +63,11 @@ class FeedView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        following_ids = self.request.user.following.values_list("id", flat=True)
+        following_users = self.request.user.following.all()
         return (
-            Post.objects.filter(author_id__in=following_ids)
+            Post.objects.filter(author__in=following_users).order_by("-created_at")
             .select_related("author")
             .prefetch_related("likes", "comments")
-            .order_by("-created_at")
         )
 
 
@@ -61,8 +75,17 @@ class LikePostView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        post = get_object_or_404(Post, pk=pk)
-        _, created = Like.objects.get_or_create(post=post, user=request.user)
+        post = generics.get_object_or_404(Post, pk=pk)
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        if created and post.author != request.user:
+            post_ct = ContentType.objects.get_for_model(post)
+            Notification.objects.create(
+                recipient=post.author,
+                actor=request.user,
+                verb="liked your post",
+                target_ct=post_ct,
+                target_id=post.id,
+            )
         message = "Post liked." if created else "Post already liked."
         return Response({"detail": message}, status=status.HTTP_200_OK)
 
@@ -71,7 +94,7 @@ class UnlikePostView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        post = get_object_or_404(Post, pk=pk)
+        post = generics.get_object_or_404(Post, pk=pk)
         deleted, _ = Like.objects.filter(post=post, user=request.user).delete()
         if deleted:
             return Response({"detail": "Post unliked."}, status=status.HTTP_200_OK)
