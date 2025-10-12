@@ -1,13 +1,17 @@
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
-from django.contrib.auth import get_user_model
+
 from notifications.models import Notification
 
 User = get_user_model()
 
+
 @receiver(m2m_changed, sender=User.following.through)
 def create_follow_notification(sender, instance, action, pk_set, **kwargs):
     if action == "post_add":
+        follower_ct = ContentType.objects.get_for_model(instance)
         for target_id in pk_set:
             try:
                 target = User.objects.get(pk=target_id)
@@ -18,4 +22,6 @@ def create_follow_notification(sender, instance, action, pk_set, **kwargs):
                     recipient=target,
                     actor=instance,
                     verb="followed you",
+                    target_ct=follower_ct,
+                    target_id=instance.id,
                 )

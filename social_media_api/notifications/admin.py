@@ -3,6 +3,6 @@ from .models import Notification
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'recipient', 'actor', 'verb', 'timestamp')
+    list_display = ('id', 'recipient', 'actor', 'verb', 'timestamp', 'unread')
     search_fields = ('verb', 'recipient__username', 'actor__username')
-    list_filter = ('timestamp',)
+    list_filter = ('timestamp', 'unread')
