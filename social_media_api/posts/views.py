@@ -1,49 +1,43 @@
-from rest_framework import viewsets, permissions, status, generics
-from rest_framework.decorators import action
+from django.contrib.contenttypes.models import ContentType
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from django.db.models import Q
-from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer
-from .permissions import IsAuthorOrReadOnly
+from rest_framework.views import APIView
 
-class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all().order_by('-created_at')
-    serializer_class = PostSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-    search_fields = ['title', 'content']
+from .models import Post, Like
+from .serializers import PostSerializer  # create a simple serializer with fields = ["id","author","body","created_at"]
+from notifications.models import Notification
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def like(self, request, pk=None):
-        post = self.get_object()
-        like, created = Like.objects.get_or_create(post=post, user=request.user)
-        if not created:
-            return Response({'detail': 'Already liked.'}, status=400)
-        return Response({'detail': 'Post liked.'})
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def unlike(self, request, pk=None):
-        post = self.get_object()
-        deleted, _ = Like.objects.filter(post=post, user=request.user).delete()
-        if not deleted:
-            return Response({'detail': 'You have not liked this post.'}, status=400)
-        return Response({'detail': 'Post unliked.'})
-
-class CommentViewSet(viewsets.ModelViewSet):
-    queryset = Comment.objects.all().order_by('created_at')
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
-class FeedView(generics.ListAPIView):
+class FeedView(generics.ListAPIView):  # ✅ feed: posts from users current user follows
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        following_ids = user.following.values_list('id', flat=True)
-        return Post.objects.filter(author__in=following_ids).order_by('-created_at')
+        following_ids = user.following.values_list("id", flat=True)
+        return Post.objects.filter(author_id__in=following_ids).order_by("-created_at")  # ✅ ordered newest first
+
+
+class LikePostView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        post = generics.get_object_or_404(Post, pk=pk)
+        like, created = Like.objects.get_or_create(post=post, user=request.user)
+        if created:
+            Notification.objects.create(
+                recipient=post.author,
+                actor=request.user,
+                verb="liked your post",
+                target_ct=ContentType.objects.get_for_model(Post),
+                target_id=post.id,
+            )
+        return Response({"detail": "Liked"}, status=200)
+
+
+class UnlikePostView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        post = generics.get_object_or_404(Post, pk=pk)
+        Like.objects.filter(post=post, user=request.user).delete()
+        return Response({"detail": "Unliked"}, status=200)
